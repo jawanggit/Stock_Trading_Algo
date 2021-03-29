@@ -20,7 +20,19 @@ def PullData(stock, enddate):
     df = data[0].sort_index()
     df = df.append(pd.Series(name=pd.to_datetime(enddate))) #'2021-03-29'
 
-    return df
+
+    close = df['4. close'] # switched to using 'close' price rather than 'adjusted close' price for TAs
+    close = np.array(close)
+    df['RSI'] = talib.RSI(close);
+    df['CMO'] = talib.CMO(close, timeperiod=14)
+    df['Moving Average'] = talib.MA(close,timeperiod = 20)
+    df['MACD'],df['MACD_signal'] = talib.MACD(close,fastperiod =12, slowperiod =26, signalperiod = 9)[0:2]
+    df['ROC']= talib.ROC(close, timeperiod=10)
+    df['PPO'] = talib.PPO(close, fastperiod=12, slowperiod=26, matype=0)
+    df_final = df.drop(columns=['5. adjusted close','7. dividend amount', '8. split coefficient'])
+    df_final = df_final.rename(columns = {'1. open': 'open','2. high': 'high','3. low':'low', '4. close':'close','6. volume':'volume'})
+
+    return df_final
 
 def AddIndicators(df_final, open_price):
 
@@ -43,7 +55,7 @@ def AddIndicators(df_final, open_price):
     df_final.dropna(axis = 0, inplace = True)
     df_model = df_final.drop(columns=['volume','low','high','close','RSI','CMO','Moving Average','MACD','MACD_signal','ROC','PPO']);
 
-    return df_model
+    return df_model , df_final
 
 
 
