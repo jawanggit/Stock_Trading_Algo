@@ -5,6 +5,8 @@ Stock Trading Algorithm that uses Machine Learning to calculate entry and exist 
 # Outline:
 1. Business Problem:
 
+Using Machine Learning model to accurately predict stock prices is what investment banks and hedge fund managers have spent years and millions of dollars to build. The field of algorithmic trading embodies this goal and not only requires developing ...
+
 Predicting the price of stocks accurately is a critical business problem for investment banks and hedge fund managers. This allows them to generate reutrns for their customers which in turn results in greater and greater investments and commissions for these companies.
 
 2. Goal of Project:

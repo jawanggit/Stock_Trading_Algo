@@ -55,6 +55,8 @@ def AddIndicators(df_final, open_price):
     df_final.dropna(axis = 0, inplace = True)
     df_model = df_final.drop(columns=['volume','low','high','close','RSI','CMO','Moving Average','MACD','MACD_signal','ROC','PPO']);
 
+    df_final = df_final.iloc[-1000:,:]
+    df_model = df_model.iloc[-1000:,:]
     return df_model , df_final
 
 
