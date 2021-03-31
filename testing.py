@@ -31,7 +31,7 @@ class GBR_(object):
 
         model = GradientBoostingRegressor(n_estimators=300, loss = 'quantile',
                                                 max_depth=4, learning_rate=.1, subsample=0.5,
-                                                random_state=154, alpha =.8)
+                                                random_state=154, alpha =.40)
 
         for i in range(test_window):
             X_train = df_model.iloc[:-test_window-i]
@@ -71,7 +71,7 @@ class GBR_(object):
 
         model = GradientBoostingRegressor(n_estimators=300, loss = 'quantile',
                                                 max_depth=4, learning_rate=.1, subsample=0.5,
-                                                random_state=154, alpha = .5)
+                                                random_state=154, alpha = .7)
 
         for i in range(test_window):
             X_train = df_model.iloc[:-test_window-i]
@@ -214,8 +214,8 @@ class ARIMA_(object):
 
 if __name__ == '__main__':
 
-    df = p.PullData('AAPL', '2021-03-31')
-    df_model , df_final = p.AddIndicators(df, '120.05')
+    df = p.PullData('DAL', '2021-03-31')
+    df_model , df_final = p.AddIndicators(df, '48.80')
 
     #Gradient Boosting
     test_window = 60
