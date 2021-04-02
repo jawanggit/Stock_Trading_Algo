@@ -1,4 +1,4 @@
-![](https://github.com/jawanggit/banner.png)
+![](https://github.com/jawanggit/Stock_Trading_Algo/blob/main/Seattle-Boeing-HeroB.jpg)
 # Stock_Trading_Algo
 Stock Trading Algorithm that uses Machine Learning to calculate entry and exist points for daily trades
 
