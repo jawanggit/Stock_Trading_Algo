@@ -45,7 +45,26 @@ Based off a custom GridSearch that minimized RMSE values for both the alpha_low 
 
 ### Evaluation:
 
-The ultimate test for these models is to calculate the returns from these predictions. With an ARIMA model, the model  
+The ultimate test for these models is to calculate the returns from these predictions. The trading strategy I utilized for this evaluation process was to only excecute a trade each day if the predicted low is met. If not, no trade is made that day. If the predicted low is met on the given day, the trade is closed out when the predicted high is met that day or else at the closing price for that day.
+
+With an ARIMA model, this strategy performed extremely poorly. This is due to the fact that the ARIMa model overpredicted the daily low price resulting in buying in each day at too high of price. The overall return from this strategy was a loss of over -300% over the 60 day trading window.
+
+The GBR model performed far better than the ARIMA model with the given trading strategy. This is to be expected given the relatively low RMSE of the predictions for both the high and low daily price. The overall return from this strategy was $6.20 per share. While this strategy did not outperform a simple 'Buy and Hold' strategy (1 transaction: buying at the open of trading day 1 and selling at the close of trading day 60) that generated $8.30 per share, this strategy has some notable benefits over the 'Buy and Hold' strategy.
+
+1. GBR Strategy entered the market 21 day out of 60, which yielded a 12% return over the entire testing window
+2. Based on the days GBR entered the market, GBR generated on average over $0.60 more than simply buying at the daily open price.
+3. The variance/risk with GBR was also 10% less than buying and selling at the open and close:
+
+### Next Steps:
+
+GBR:
+
+1. Further tune GBR with lower learning rate and more trees
+2. Investigate modifying the windows used to calculate the technical indicators
+3. Investigate how other stocks performance using this model
+4. Investigate how this model would perform in a bearish timeframe 
+
+
 
 
 
