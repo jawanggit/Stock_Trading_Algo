@@ -1,5 +1,5 @@
 ![](https://github.com/jawanggit/Stock_Trading_Algo/blob/main/Seattle-Boeing-HeroB.jpg)
-# Trading Delta Airlines Stock using Machine Learning-based Algorithms
+# Trading Delta Airlines Stock using Machine Learning
 Stock Trading Algorithm that uses Machine Learning to calculate entry and exist points for daily trades
 
 
