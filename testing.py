@@ -10,7 +10,7 @@ import sklearn.datasets as datasets
 # from sklearn.model_selection import GridSearchCV
 import collections
 
-from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.arima.model import ARIMA 
 # import tensorflow as tf
 # from tensorflow import keras
 # from tensorflow.keras import layers
@@ -67,7 +67,7 @@ class GBR_(object):
         rmse_low = mean_squared_error(results['actual_low'].values,results['pred_low'], squared = False)
 
         return results, rmse_low
-
+    
     def Daily_High(self, df_model, results, alpha_h, test_window = 30):
         
         actual_high_lst = []
@@ -98,7 +98,10 @@ class GBR_(object):
         results['pred_high'] = pred_high
         results['return_plow_minus_phigh'] = results['pred_high'] - results['pred_low']
 
-        return results
+        #RMSE calculation
+        rmse_high = mean_squared_error(results['actual_high'].values,results['pred_high'], squared = False)
+
+        return results , rmse_high
 
     def Overall_Return(self,results, return_type = 'optimal'):
         overall_return = 0
@@ -127,23 +130,21 @@ class GBR_(object):
         return overall_return-results.iloc[-1,5] # removes most recent actual price which is neg val
 
 class ARIMA_(object):
-    def Daily_Low(self,df_model, start_date, test_window = 30):
+    def Daily_Low(self,df_hourly_low, start_date,test_window = 60):
 
         index = pd.date_range(start_date, periods=24*test_window,freq='H') # startdate ex: '1/1/21'
         pred_low = []
         
         #convert data to log
-        ts_low = df_model['yest_low']
-        ts_low = ts_low.apply(math.log)
-
-        #fill in missing data for missing dates 
-        
-        for i in range(test_window*24):
-            low_model = ARIMA(ts_low[:-test_window+i], order=(2,1,0)).fit()
+        # ts_low = pd.Series(df_hourly_low['low'].values,index = df_hourly_low.index)
+        ts_low = df_hourly_low
+        test_window_in_hours = test_window*24
+      
+        for i in range(test_window_in_hours):
+            low_model = ARIMA(ts_low.iloc[:-test_window_in_hours+i], order=(2,1,0)).fit()
             pred_value = math.exp(low_model.forecast()[0])
-            pred_low.append(round(math.exp(pred_value),2))
+            pred_low.append(round(pred_value,2))
         
-        index = pd.date_range('1/1/2021', periods=test_window*24,freq='H') # startdate ex: '1/1/2021'
         pred_low = pd.Series(pred_low, index=index)
         pred_low = pred_low.resample('D').mean()
         
@@ -162,68 +163,66 @@ class ARIMA_(object):
 
         results['return'] = results['close'] - results['pred_low']
 
-        return results
+        #RMSE calculation
+        rmse_low = mean_squared_error(results['actual_low'].values,results['pred_low'], squared = False)
+
+        return results,rmse_low
+    
+    
+    def Daily_High(self,df_hourly_high,results,start_date, test_window = 60):
         
-    def Daily_High(self,df_model,results, test_window = 30):
-        
-        
+        index = pd.date_range(start_date, periods=24*test_window,freq='H') # startdate ex: '1/1/21'
         pred_high = []  
         
          #convert data to log
-        ts_high = df_model['yest_high']
-        ts_high = ts_high.apply(math.log)
+        ts_high = df_hourly_high
+        test_window_in_hours = test_window*24
         
-        for i in range(test_window):
-            high_model = ARIMA(ts_high[:-test_window+i], order=(2,1,0)).fit()
-            pred_value = high_model.predict(start=len(ts_high)-1)
-            pred_high.append(round(math.exp(pred_value),2))
+        for i in range(test_window_in_hours):
+            high_model = ARIMA(ts_high.iloc[:-test_window_in_hours+i], order=(2,1,0)).fit()
+            pred_value = math.exp(high_model.forecast()[0])
+            pred_high.append(round(pred_value,2))
+        
+        pred_high = pd.Series(pred_high, index=index)
+        pred_high = pred_high.resample('D').mean()
             
         
         results['actual_high'] = df_final['high'].iloc[-test_window:].values
-        results['pred_high'] = pred_high
+        results['pred_high'] = pred_high.values
         results['return_phigh_minus_plow'] = results['pred_high'] - results['pred_low']
 
-        return results
+        #RMSE calculation
+        rmse_high = mean_squared_error(results['actual_high'].values,results['pred_high'], squared = False)
+
+        return results, rmse_high
 
 
-    def Overall_Return(self,results, return_type = 'base'):
+    def Overall_Return(self,results, return_type = 'optimal'):
         overall_return = 0
-        index_lst = []
+        trade_lst = []
+        
 
         if return_type == 'optimal':
             for index, row in results.iterrows():
                 if row['off_by'] >0:
-                    if row['actual_high'] >row['pred_high']:
-                        index_lst.append(index)
-                        overall_return += row['return_pred_h-pred_l']
+                    if row['actual_high'] >row['pred_high'] and row['high'] > row['low']:
+                        trade_lst.append(row)
+                        overall_return += row['return_plow_minus_phigh']
+                        
                     else:
-                        index_lst.append(index)
+                        trade_lst.append(row)
                         overall_return += row['return']
-            return overall_return-results.iloc[-1,6] # removes most recent actual price which is neg val
+            
+            trades  = pd.DataFrame(trade_lst,columns=results.columns)
+            trades.to_excel('TRADES_ARIMA_.3_.6_60_500.xlsx')
+            return overall_return-results.iloc[-1,5] # removes most recent actual price which is neg val
             
         #base case
-        if return_type == 'base':
-            for index, row in results.iterrows():
-                if row['off_by'] >0:
-                    index_lst.append(index)
-                    overall_return += row['return']
-            return overall_return-results.iloc[-1,6] # removes most recent actual price which is neg val
-        
-        #pred_low > open (test1)
-        if return_type == 'test1':
-            for index, row in results.iterrows():
-                if row['open'] > row['pred_low'] and row['off_by']>0:
-                    index_lst.append(index)
-                    overall_return += row['return']
-            return overall_return-results.iloc[-1,6] # removes most recent actual price which is neg val
+        for index, row in results.iterrows():
+            if row['off_by'] >0:
+                overall_return += row['return']
+        return overall_return-results.iloc[-1,5] # removes most recent actual price which is neg val
 
-
-
-# class RNN_(object):
-
-#     def Daily_Low(self,df_model, test_window = 30):
-#     def Daily_High(self,df_model, test_window = 30):
-#     def Overall_Return(self,results, return_type = 'base'):
 
 def testing_GBR(alpha_l_list, alpha_h_list,test_window):
     
@@ -236,7 +235,7 @@ def testing_GBR(alpha_l_list, alpha_h_list,test_window):
     
                 #generate daily low and high price prediction for each day in test window
                 df_model_with_low,rmse_low = GBR_test.Daily_Low(df_model, alpha_l, test_window)
-                results = GBR_test.Daily_High(df_model,df_model_with_low, alpha_h, test_window)
+                results,rmse_high = GBR_test.Daily_High(df_model,df_model_with_low, alpha_h, test_window)
 
                 #join results with high and low daily price csv
                 results['dates']=pd.to_datetime(results['dates'])
@@ -247,6 +246,7 @@ def testing_GBR(alpha_l_list, alpha_h_list,test_window):
                 value = GBR_test.Overall_Return(results,return_type = return_type)
                 
                 data['RMSE_low'].append(rmse_low)
+                data['RMSE_high'].append(rmse_high)
                 data['Return'].append(value)
                 data['Alpha_Low'].append(al)
                 data['Alpha_High'].append(ah)
@@ -255,22 +255,17 @@ def testing_GBR(alpha_l_list, alpha_h_list,test_window):
                 data['Learning_Rate'].append(.05)
     
     df = pd.DataFrame.from_dict(data)
-    df.to_csv('testing_GBR_60day_v4.csv')
-
-
-
-
-
+    df.to_csv('testing_GBR_60day_v5.csv')
 
 
 if __name__ == '__main__':
 
-    #df_hourly = p.PullHourlyData('Dal')
+    #p.PullHourlyData('DAL')
+    df_hourly_low = pd.read_csv('hourly_stock_data.csv', index_col = 'time')
+    df_hourly_high = pd.read_csv('hourly_stock_data_high.csv', index_col = 'time')
     #df = p.PullData('DAL', '2021-04-1')
     df = pd.read_csv('stock_data.csv',index_col = 'date')
     df.index = pd.to_datetime(df.index)
-
-
 
 
     df_model , df_final = p.AddIndicators(df, '48.54')
@@ -279,56 +274,59 @@ if __name__ == '__main__':
     timestamp.index = pd.to_datetime(timestamp.index)
     
     
-    testing_mode = True
-
-    #uncomment to set testing mode
+    testing_mode = False
+    GBR_model = True
+    ARIMA_model = False
     
-  
+    test_window = 60
+    return_type = 'optimal'
+    
+    #alpha_l_list = [.3]
+    #alpha_h_list = [.9,.8,.7,.6]
+
+    
     #Gradient Boosting
-    #parameters
-    if testing_mode:
+  
+    if GBR_model:
+        if testing_mode:
 
-        test_window = 60
-        return_type = 'optimal'
+            
+            testing_GBR(alpha_l_list, alpha_h_list,test_window)
+        else:
+            
+            #test one scenario and generate trade history
+            GBR_test = GBR_()
+            test_window = 60
+            alpha_l = .3
+            alpha_h = .7
+            return_type = 'optimal'
         
-        alpha_l_list = [.3]
-        alpha_h_list = [.9,.8,.7,.6]
-        
-        testing_GBR(alpha_l_list, alpha_h_list,test_window)
-    else:
-        
-        #test one scenario and generate trade history
-        GBR_test = GBR_()
-        test_window = 60
-        alpha_l = .3
-        alpha_h = .95
-        return_type = 'optimal'
+            #generate daily low and high price prediction for each day in test window
+            df_model_with_low,rmse_low = GBR_test.Daily_Low(df_model, alpha_l, test_window)
+            results,rmse_high = GBR_test.Daily_High(df_model,df_model_with_low, alpha_h, test_window)
+            
+            #join results with high and low daily price csv
+            results['dates']=pd.to_datetime(results['dates'])
+            results = results.set_index('dates')
+            results = results.join(timestamp, how = 'left')
+            results.to_excel('GBR_test_.3_.7_500_.5.xlsx')
+
+            #Overall return for test window assuming fixed number of shares purchased and sold during each buy and sell transaction
+            value = GBR_test.Overall_Return(results,return_type = return_type)
+            print(f'GBR return over {test_window}: {value}')
+            print(f'GBR RMSE over {test_window}: {rmse_low}')
     
-        #generate daily low and high price prediction for each day in test window
-        df_model_with_low,rmse_low = GBR_test.Daily_Low(df_model, alpha_l, test_window)
-        results = GBR_test.Daily_High(df_model,df_model_with_low, alpha_h, test_window)
-        
-        #join results with high and low daily price csv
-        results['dates']=pd.to_datetime(results['dates'])
-        results = results.set_index('dates')
-        results = results.join(timestamp, how = 'left')
-        results.to_excel('GBR_test_.3_.95_400_.1.xlsx')
-
-        #Overall return for test window assuming fixed number of shares purchased and sold during each buy and sell transaction
-        value = GBR_test.Overall_Return(results,return_type = return_type)
-        print(f'GBR return over {test_window}: {value}')
-        print(f'GBR RMSE over {test_window}: {rmse_low}')
-
     
-
-
-
     #ARIMA
-    # ARIMA_test = ARIMA_()
-    # df_model_with_low = ARIMA_test.Daily_Low(df_model)
-    # results = ARIMA_test.Daily_High(df_model,df_model_with_low)
-    # df_model_with_low.to_excel('ARIMA_test.xlsx')
-    # print(f'ARIMA return over 30 periods: {ARIMA_test.Overall_Return(results)}')
 
-    # RNN
+    if ARIMA_model:
+        
+        ARIMA_test = ARIMA_()
+        df_low,rmse_low = ARIMA_test.Daily_Low(df_hourly_low,'1/1/2021', test_window)
+        df_low.to_excel('ARIMA_low.xlsx')
+        results = ARIMA_test.Daily_High(df_hourly_high,df_low,'1/1/2021',test_window)
+        results.to_excel('ARIMA_full_results.xlsx')
+
+        print(f'ARIMA return over 60 trading days: {ARIMA_test.Overall_Return(results)}')
+        print(f'ARIMA RMSE: {rmse_low}')
 
