@@ -23,13 +23,33 @@ The processing.py file contains the two main functions for the data preparation.
 
 4. Creating the Machine Learning (ML) Models
 
-AutoRegressive Integrated Moving Average (ARIMA) model:
+AutoRegressive Integrated Moving Average (ARIMA) Model:
 
 The first ML model I built was an ARIMA model using the statsmodels package. Since stock prices are type of timeseries data, using an ARIMA model seemed like an ideal first step in predicting/forecasting future prices.
 
 The ARIMA model did not utilize the technical indicators/additional features that I generated and relies strictly on price and time to generate its predictions. The stock I choose to forecast on was Delta Airlines (stock ticker: DAL) and in order to apply an ARIMA model to it, I needed to remove the upward trend and slight seasonality (Fig A.) to make the timeseries stationary. By applying a log transformation to the prices and taking the difference between values, I was able to create a stationary timeseries that passed the Augumented Dickey-Fuller (ADF) test for stationarity.
 
-Based ont
+To determine the autocorrelation parameter for the model, I examined the autocorrelation and partial autocorrelation plots. 
+
+
+Gradient Boosting Regression Model (GBR):
+
+The second model I built was a GBR model. I choose to use a GBR model because research I had done into machine learning-based stock trading often mentioned and utilized GBR to due similar prediction on stocks. Because GBR is a tree-based model, I did not need to standardize the dataset or applying any transformations to the dataset. I was also able to leverage all the additional features that I created using technical indicators which offered a much richer dataset to apply to a GBR model.
+
+To tune this model, I decided to focus on the learning rate, n_estimators, and the regulurization value (alpha) for a quantile loss function. I choose to use a quantile loss function for the model because I was predicting high and low daily prices and I wanted to penalize the predictions differently based on whether or not the model was predicting a daily high or low price. 
+
+
+The table below shows the results of my testing in tersm of root mean square error (RMSE) and returns compared. The solid red line shows the overall returns from a simple "Buy and Hold" strategy. 
+
+
+
+
+Evaluation:
+
+
+
+
+
 
 
 
