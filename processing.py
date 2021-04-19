@@ -158,7 +158,7 @@ def lstm_data_transform(x_data, low_actual_data, high_actual_data,  num_steps=5)
             break
         # Get a sequence of data for x
         seq_X = x_data[i:end_ix]
-        # Get only the last element of the sequency for y
+        # Get only the last element of the sequency from y
         seq_low_actual = low_actual_data[end_ix]
         seq_high_actual = high_actual_data[end_ix]
         
@@ -172,4 +172,31 @@ def lstm_data_transform(x_data, low_actual_data, high_actual_data,  num_steps=5)
     high_array = np.array(high_actual)
     
     return x_array, low_array, high_array
+
+
+
+def plot_train_vs_val_loss(history, title):
+    plt.clf()
+    history_dict = history.history
+    loss_values = history_dict['loss']
+    val_loss_values = history_dict['val_loss']
+    epochs = range(1, len(loss_values) + 1)
+    plt.plot(epochs, loss_values, 'bo', label='Training loss')
+    plt.plot(epochs, val_loss_values, 'b', label='Validation loss')
+    plt.title('Training and validation loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.savefig(title)
+
+def plot_val_vs_actual(final_results, actual, title):
+    plt.clf()
+    index = actual.iloc[5:].index
+    plt.plot(index, actual.iloc[5:], 'bo', label='Actual Daily Low Prices')
+    plt.plot(index, final_results, 'b', label='Predictions')
+    plt.title('Predictions vs Daily Low Actuals')
+    plt.xlabel('Time')
+    plt.ylabel('Price')
+    plt.legend()
+    plt.savefig(title)
 
