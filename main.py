@@ -8,10 +8,14 @@ from sklearn.metrics import mean_squared_error
 import sklearn.model_selection as cv
 import sklearn.datasets as datasets
 import collections
-#from statsmodels.tsa.arima.model import ARIMA 
-import stats
+from statsmodels.tsa.arima.model import ARIMA 
+# import stats
+from tensorflow import keras
+from tensorflow.keras import layers
 import processing
 import warnings
+import matplotlib.pyplot as plt
+
 warnings.filterwarnings("ignore")
 
 def Overall_Return(self,results, return_type = 'optimal'):
@@ -70,7 +74,7 @@ if __name__ == '__main__':
         high_y_train = df_final['high'].iloc[:train_ind]
         high_y_test = df_final['high'].iloc[train_ind:]
         
-        #scaling
+        #scaling data for input into neural network
         scaler_x = StandardScaler()
         scaler_low_y = StandardScaler()
         scaler_high_y = StandardScaler()
@@ -78,13 +82,14 @@ if __name__ == '__main__':
         x_train_sc = scaler_x.fit_transform(x_train)
         x_test_sc = scaler_x.transform(x_test)
         
+        #reshape scaler_low_y since it is a row vector
         low_y_train_sc = scaler_low_y.fit_transform((low_y_train.values).reshape(-1,1))
         low_y_test_sc = scaler_low_y.transform((low_y_test.values).reshape(-1,1))
         
         high_y_train_sc = scaler_high_y.fit_transform((high_y_train.values).reshape(-1,1))
         high_y_test_sc = scaler_high_y.transform((high_y_test.values).reshape(-1,1))
 
-        #transform 2D data to 3D array for LSTM
+        #transform 2D data to 3D array for LSTM nodes
         #train set
         (x_train_transformed,
          low_y_train_transformed, high_y_train_transformed) = processing.lstm_data_transform(x_train_sc,
@@ -96,29 +101,43 @@ if __name__ == '__main__':
                                                                  low_y_test_sc, high_y_test_sc)
              
         #compile model for low price
-        model = Sequential()
-        model.add(LSTM(100, activation='tanh', input_shape=(num_steps, 1), 
+        model = keras.Sequential()
+        model.add(layers.LSTM(100, activation='tanh', input_shape=(num_steps, 13), 
                     return_sequences=False))
-        model.add(Dense(units=50, activation='relu'))
-        model.add(Dense(units=1, activation='linear'))
-        adam = optimizers.Adam(lr=0.001)
+        model.add(layers.Dense(units=50, activation='relu'))
+        model.add(layers.Dense(units=1, activation='linear'))
+        adam = keras.optimizers.Adam(lr=0.001)
         model.compile(optimizer=adam, loss='mse')
         
-        model.fit(x_train_transformed, low_y_train_transformed, epochs=10)
-        test_predict = model.predict(x_test_transformed)
-        
+        #uncomment lines below to determine number of epochs:
+        #history = model.fit(x_train_transformed, low_y_train_transformed, epochs=10, validation_data=(x_test_transformed,low_y_test_transformed)) 
+        #generate train vs validation loss plot to determine epoch
+        #processing.plot_train_vs_val_loss(history, 'Low_price_loss_graph.png')
+        #predict validation data using optimal epoch from graph (3 epochs)
+
+        model.fit(x_train_transformed, low_y_train_transformed, epochs=3)
+        results = model.predict(x_test_transformed)
+        final_results = scaler_low_y.inverse_transform(np.array(results))
+        print(final_results)
+        # evaluation = model.evaluate(x_test_transformed,low_y_test_transformed)
+        # print(evaluation)
+
+        processing.plot_val_vs_actual(final_results, low_y_test, 'Actual Low vs Predicted Plot.png')
+
+
         #compile mode for high price
-        model = Sequential()
-        model.add(LSTM(100, activation='tanh', input_shape=(num_steps, 1), 
+        model = keras.Sequential()
+        model.add(layers.LSTM(100, activation='tanh', input_shape=(num_steps, 13), 
                     return_sequences=False))
-        model.add(Dense(units=50, activation='relu'))
-        model.add(Dense(units=1, activation='linear'))
-        adam = optimizers.Adam(lr=0.001)
+        model.add(layers.Dense(units=50, activation='relu'))
+        model.add(layers.Dense(units=1, activation='linear'))
+        adam = keras.optimizers.Adam(lr=0.001)
         model.compile(optimizer=adam, loss='mse')
         
-        model.fit(x_train_transformed, high_y_train_transformed, epochs=10)
-        test_predict = model.predict(x_test_transformed)
-        
+        #uncomment lines below to the determine number of epochs:
+        #history = model.fit(x_train_transformed, high_y_train_transformed, epochs=10, validation_data=(x_test_transformed,high_y_test_transformed))
+        #generate train vs val loss plot
+        #processing.plot_train_vs_val_loss(history, 'High_price_loss_graph.png')
 
 
     #Gradient Boosting
@@ -149,7 +168,7 @@ if __name__ == '__main__':
     
 
     #ARIMA
-    if ARIMA_model:
+    if ARIMA:
         
         ARIMA_test = ARIMA_()
         df_low,rmse_low = ARIMA_test.Daily_Low(df_hourly_low,'1/1/2021', test_window)
