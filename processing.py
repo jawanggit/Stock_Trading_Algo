@@ -90,9 +90,11 @@ def AddIndicators(df_final, open_price):
     df_final.iloc[-1] = df_final.iloc[-1].fillna(0)
     
     df_final.dropna(axis = 0, inplace = True)
-    df_model = df_final.drop(columns=['volume','low','high','close','RSI','CMO','Moving Average','MACD','MACD_signal','ROC','PPO']);
+    df_model = df_final.drop(columns=['volume','low','high','close',
+    'RSI','CMO','Moving Average','MACD','MACD_signal','ROC','PPO'])
 
     df_final = df_final.iloc[-3000:,:]
+    #df_model has all features shifted by 1 day and the actual day's open price"
     df_model = df_model.iloc[-3000:,:]
     return df_model , df_final
 
@@ -138,5 +140,36 @@ def HighLowTimestamp(df_final):
     return time_dict
 
 
-# def AddTimestampHighLow(df,results)
+#LSTM transformation
+
+def lstm_data_transform(x_data, low_actual_data, high_actual_data,  num_steps=5):
+    """ Changes data to the format for LSTM training for sliding
+     window approach (ref: https://towardsdatascience.com/
+     how-to-reshape-data-and-do-regression-for-time-series-
+     using-lstm-133dad96cd00) """
+    # Prepare the list for the transformed data
+    X, low_actual, high_actual = list(), list(), list()
+    # Loop of the entire data set
+    for i in range(x_data.shape[0]):
+        # compute a new (sliding window) index
+        end_ix = i + num_steps
+        # if index is larger than the size of the dataset, we stop
+        if end_ix >= x_data.shape[0]:
+            break
+        # Get a sequence of data for x
+        seq_X = x_data[i:end_ix]
+        # Get only the last element of the sequency for y
+        seq_low_actual = low_actual_data[end_ix]
+        seq_high_actual = high_actual_data[end_ix]
+        
+        # Append the list with sequencies
+        X.append(seq_X)
+        low_actual.append(seq_low_actual)
+        high_actual.append(seq_high_actual)
+    # Make final arrays
+    x_array = np.array(X)
+    low_array = np.array(low_actual)
+    high_array = np.array(high_actual)
+    
+    return x_array, low_array, high_array
 
