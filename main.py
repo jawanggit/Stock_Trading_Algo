@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
 
-def Overall_Return(self,results, return_type = 'optimal'):
+def Overall_Return(results, return_type = 'optimal'):
     overall_return = 0
     trade_lst = []
     if return_type == 'optimal':
@@ -33,8 +33,8 @@ def Overall_Return(self,results, return_type = 'optimal'):
                     overall_return += row['return']
         
         trades  = pd.DataFrame(trade_lst,columns=results.columns)
-        trades.to_excel('TRADES_GBR.xlsx')      
-        return overall_return-results.iloc[-1,5] # removes most recent actual price which is neg val
+        trades.to_excel('TRADES_RNN.xlsx')      
+        return overall_return# removes most recent actual price which is neg val
 
 if __name__ == '__main__':
 
@@ -56,7 +56,10 @@ if __name__ == '__main__':
     #settings for generating results
     testing_mode = False
     RNN = True
-    num_steps = 5
+    num_steps = (5,10)
+    epochs = (5,3)
+
+
     GBR = False
     ARIMA = False
     test_window = 3
@@ -66,13 +69,16 @@ if __name__ == '__main__':
     if RNN:
 
         #split train/test
-        train_ind = int(df_model.shape[0]*.8) #need to correct this for Jan 1,2021 start for test data
-        x_train = df_model[:train_ind]
-        x_test = df_model[train_ind:]
-        low_y_train = df_final['low'].iloc[:train_ind]
-        low_y_test = df_final['low'].iloc[train_ind:]
-        high_y_train = df_final['high'].iloc[:train_ind]
-        high_y_test = df_final['high'].iloc[train_ind:]
+        timestart = '2021-01-01'
+        mask1 = df_model.index < timestart
+        mask2 = df_model.index >= timestart
+        # train_ind = int(df_model.shape[0]*.8) #need to correct this for Jan 1,2021 start for test data
+        x_train = df_model[mask1]
+        x_test = df_model[mask2]
+        low_y_train = df_final['low'][mask1]
+        low_y_test = df_final['low'][mask2]
+        high_y_train = df_final['high'][mask1]
+        high_y_test = df_final['high'][mask2]
         
         #scaling data for input into neural network
         scaler_x = StandardScaler()
@@ -91,53 +97,85 @@ if __name__ == '__main__':
 
         #transform 2D data to 3D array for LSTM nodes
         #train set
-        (x_train_transformed,
-         low_y_train_transformed, high_y_train_transformed) = processing.lstm_data_transform(x_train_sc,
-                                                                  low_y_train_sc, high_y_train_sc)
+        (low_x_train_transformed, low_y_train_transformed) = processing.lstm_data_transform(x_train_sc,
+                                                    low_y_train_sc, num_steps[0])
+        (high_x_train_transformed, high_y_train_transformed) = processing.lstm_data_transform(x_train_sc,
+                                                    high_y_train_sc, num_steps[1])
         
         # test set
-        (x_test_transformed,
-        low_y_test_transformed, high_y_test_transformed) = processing.lstm_data_transform(x_test_sc,
-                                                                 low_y_test_sc, high_y_test_sc)
-             
+        (low_x_test_transformed, low_y_test_transformed) = processing.lstm_data_transform(x_test_sc,
+                                                    low_y_test_sc, num_steps[0])
+        (high_x_test_transformed, high_y_test_transformed) = processing.lstm_data_transform(x_test_sc,
+                                                    low_y_test_sc, num_steps[1])
+        
+
         #compile model for low price
         model = keras.Sequential()
-        model.add(layers.LSTM(100, activation='tanh', input_shape=(num_steps, 13), 
+        model.add(layers.LSTM(100, activation='tanh', input_shape=(num_steps[0], 13), 
                     return_sequences=False))
         model.add(layers.Dense(units=50, activation='relu'))
         model.add(layers.Dense(units=1, activation='linear'))
         adam = keras.optimizers.Adam(lr=0.001)
         model.compile(optimizer=adam, loss='mse')
         
-        #uncomment lines below to determine number of epochs:
-        #history = model.fit(x_train_transformed, low_y_train_transformed, epochs=10, validation_data=(x_test_transformed,low_y_test_transformed)) 
-        #generate train vs validation loss plot to determine epoch
-        #processing.plot_train_vs_val_loss(history, 'Low_price_loss_graph.png')
-        #predict validation data using optimal epoch from graph (3 epochs)
+        # # uncomment lines below to determine number of epochs:
+        # history = model.fit(x_train_transformed, low_y_train_transformed, epochs = epochs[0],
+        #              validation_data=(low_x_test_transformed,low_y_test_transformed)) 
+        # # generate train vs validation loss plot to determine epoch
+        # processing.plot_train_vs_val_loss(history, 'Low_price_loss_graph.png')
+        # # predict validation data using optimal epoch from graph (3 epochs)
 
-        model.fit(x_train_transformed, low_y_train_transformed, epochs=3)
-        results = model.predict(x_test_transformed)
+        model.fit(low_x_train_transformed, low_y_train_transformed, epochs[0])
+        results = model.predict(low_x_test_transformed)
         final_results = scaler_low_y.inverse_transform(np.array(results))
-        print(final_results)
-        # evaluation = model.evaluate(x_test_transformed,low_y_test_transformed)
+        # evaluation = model.evaluate(low_x_test_transformed,low_y_test_transformed)
         # print(evaluation)
 
-        processing.plot_val_vs_actual(final_results, low_y_test, 'Actual Low vs Predicted Plot.png')
-
+        processing.plot_val_vs_actual(final_results, low_y_test,
+                                     'Actual Low vs Predicted Plot.png', 'Low',num_steps[0])
+        final_df_results = pd.DataFrame(final_results[:-1],index = low_y_test.iloc[num_steps[0]:-1].index,
+                                     columns = ['pred_low'])
 
         #compile mode for high price
         model = keras.Sequential()
-        model.add(layers.LSTM(100, activation='tanh', input_shape=(num_steps, 13), 
+        model.add(layers.LSTM(100, activation='tanh', input_shape=(num_steps[1], 13), 
                     return_sequences=False))
         model.add(layers.Dense(units=50, activation='relu'))
         model.add(layers.Dense(units=1, activation='linear'))
-        adam = keras.optimizers.Adam(lr=0.001)
+        adam = keras.optimizers.Adam(lr=0.0001)
         model.compile(optimizer=adam, loss='mse')
         
-        #uncomment lines below to the determine number of epochs:
-        #history = model.fit(x_train_transformed, high_y_train_transformed, epochs=10, validation_data=(x_test_transformed,high_y_test_transformed))
-        #generate train vs val loss plot
-        #processing.plot_train_vs_val_loss(history, 'High_price_loss_graph.png')
+        # #uncomment lines below to the determine number of epochs:
+        # history = model.fit(x_train_transformed, high_y_train_transformed, epochs = epochs[1], 
+        # validation_data=(high_x_test_transformed,high_y_test_transformed))
+        # # generate train vs val loss plot
+        # processing.plot_train_vs_val_loss(history, 'High_price_loss_graph.png')
+
+        model.fit(high_x_train_transformed, high_y_train_transformed, epochs[1])
+        results = model.predict(high_x_test_transformed)
+        final_results = scaler_high_y.inverse_transform(np.array(results))
+        processing.plot_val_vs_actual(final_results, high_y_test, 'Actual High vs Predicted Plot.png' ,'High',num_steps[1])
+        
+        final_df_results['pred_high'] = final_results[:-1]
+        
+        mask3 = df_final.index >= timestart
+        final_df_results['actual_low'] = df_final[mask3]['low']
+        final_df_results['close'] = df_final[mask3]['close']
+        final_df_results['open'] = df_final[mask3]['open']
+        final_df_results['actual_high'] = df_final[mask3]['high']
+        final_df_results['off_by'] = final_df_results['pred_low']-final_df_results['actual_low']
+        final_df_results['return'] = final_df_results['close'] - final_df_results['pred_low']
+        final_df_results['return_plow_minus_phigh'] = final_df_results['pred_high'] - final_df_results['pred_low']
+
+        
+        #join results with timestamp for high and low daily price csv
+        final_df_results = final_df_results.join(timestamp, how = 'left')
+        final_df_results.to_excel('RNN_4_20.xlsx')
+
+        value = Overall_Return(final_df_results,return_type = return_type)
+        print(f'RNN return over 3 months: {value}')
+        # print(f'RNN RMSE over {test_window}: {rmse_low}')
+
 
 
     #Gradient Boosting
@@ -178,4 +216,6 @@ if __name__ == '__main__':
 
         print(f'ARIMA return over 60 trading days: {ARIMA_test.Overall_Return(results)}')
         print(f'ARIMA RMSE: {rmse_low}')
+
+    
 
