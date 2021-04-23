@@ -56,10 +56,9 @@ if __name__ == '__main__':
     #settings for generating results
     testing_mode = False
     RNN = True
-    num_steps = (5,10)
-    epochs = (5,3)
-
-
+    num_steps = (20,20)
+    epochs = (15,4)
+    
     GBR = False
     ARIMA = False
     test_window = 3
@@ -69,24 +68,42 @@ if __name__ == '__main__':
     if RNN:
 
         #split train/test
-        timestart = '2021-01-01'
-        mask1 = df_model.index < timestart
-        mask2 = df_model.index >= timestart
-        # train_ind = int(df_model.shape[0]*.8) #need to correct this for Jan 1,2021 start for test data
-        x_train = df_model[mask1]
-        x_test = df_model[mask2]
-        low_y_train = df_final['low'][mask1]
-        low_y_test = df_final['low'][mask2]
-        high_y_train = df_final['high'][mask1]
-        high_y_test = df_final['high'][mask2]
+        timestart = pd.to_datetime('2021-01-04')
+        print(timestart)
+        low_index_start = df_model.index.get_loc(timestart)-num_steps[0]
+        high_index_start = df_model.index.get_loc(timestart)-num_steps[1]     
+    
+        # masklow_train = df_model.iloc[0:low_index_start]
+        # masklow_test = df_model.iloc[:low_index_start]
+        # maskhigh_train = df_model.index < high_index_start
+        # maskhigh_test = df_model.index >= high_index_start
+
+        x_train_low = df_model.iloc[0:low_index_start]
+        # x_train_low.iloc[-10:].to_excel("x_train.xlsx")
+        x_test_low = df_model.iloc[low_index_start:]
+        # x_test_low.iloc[-10:].to_excel("x_test.xlsx")
+        x_train_high = df_model.iloc[0:high_index_start]
+        x_test_high = df_model.iloc[high_index_start:]
+        
+        
+        low_y_train = df_final['low'].iloc[0:low_index_start]
+        # low_y_train.iloc[-10:].to_excel("low_y.xlsx")
+        low_y_test = df_final['low'].iloc[low_index_start:]
+        # low_y_test.iloc[-10:].to_excel("y_test.xlsx")
+        high_y_train = df_final['high'].iloc[0:high_index_start]
+        high_y_test = df_final['high'].iloc[high_index_start:]
         
         #scaling data for input into neural network
-        scaler_x = StandardScaler()
+        scaler_low_x = StandardScaler()
+        scaler_high_x = StandardScaler()
         scaler_low_y = StandardScaler()
         scaler_high_y = StandardScaler()
         
-        x_train_sc = scaler_x.fit_transform(x_train)
-        x_test_sc = scaler_x.transform(x_test)
+        low_x_train_sc = scaler_low_x.fit_transform(x_train_low)
+        high_x_train_sc = scaler_high_x.fit_transform(x_train_high)
+             
+        low_x_test_sc = scaler_low_x.transform(x_test_low)
+        high_x_test_sc = scaler_high_x.transform(x_test_high)
         
         #reshape scaler_low_y since it is a row vector
         low_y_train_sc = scaler_low_y.fit_transform((low_y_train.values).reshape(-1,1))
@@ -97,36 +114,43 @@ if __name__ == '__main__':
 
         #transform 2D data to 3D array for LSTM nodes
         #train set
-        (low_x_train_transformed, low_y_train_transformed) = processing.lstm_data_transform(x_train_sc,
+        (low_x_train_transformed, low_y_train_transformed) = processing.lstm_data_transform(low_x_train_sc,
                                                     low_y_train_sc, num_steps[0])
-        (high_x_train_transformed, high_y_train_transformed) = processing.lstm_data_transform(x_train_sc,
+        (high_x_train_transformed, high_y_train_transformed) = processing.lstm_data_transform(high_x_train_sc,
                                                     high_y_train_sc, num_steps[1])
         
         # test set
-        (low_x_test_transformed, low_y_test_transformed) = processing.lstm_data_transform(x_test_sc,
+        (low_x_test_transformed, low_y_test_transformed) = processing.lstm_data_transform(low_x_test_sc,
                                                     low_y_test_sc, num_steps[0])
-        (high_x_test_transformed, high_y_test_transformed) = processing.lstm_data_transform(x_test_sc,
-                                                    low_y_test_sc, num_steps[1])
+        (high_x_test_transformed, high_y_test_transformed) = processing.lstm_data_transform(high_x_test_sc,
+                                                    high_y_test_sc, num_steps[1])
         
 
         #compile model for low price
         model = keras.Sequential()
-        model.add(layers.LSTM(100, activation='tanh', input_shape=(num_steps[0], 13), 
+        model.add(layers.LSTM(150, activation='tanh', batch_input_shape=(1, num_steps[0], 13), 
                     return_sequences=False))
-        model.add(layers.Dense(units=50, activation='relu'))
+        model.add(layers.Dropout(.2))
+        model.add(layers.Dense(units=128, activation='relu'))
+        model.add(layers.Dense(units=64, activation='relu'))
+        model.add(layers.Dense(units=32, activation='relu'))
+        model.add(layers.Dense(units=8, activation='relu'))
         model.add(layers.Dense(units=1, activation='linear'))
-        adam = keras.optimizers.Adam(lr=0.001)
+
+        print(model.summary())
+        
+        adam = keras.optimizers.Adam(lr=0.0001)
         model.compile(optimizer=adam, loss='mse')
         
         # # uncomment lines below to determine number of epochs:
-        # history = model.fit(x_train_transformed, low_y_train_transformed, epochs = epochs[0],
+        # history = model.fit(low_x_train_transformed, low_y_train_transformed, epochs = epochs[0],
         #              validation_data=(low_x_test_transformed,low_y_test_transformed)) 
         # # generate train vs validation loss plot to determine epoch
         # processing.plot_train_vs_val_loss(history, 'Low_price_loss_graph.png')
         # # predict validation data using optimal epoch from graph (3 epochs)
 
-        model.fit(low_x_train_transformed, low_y_train_transformed, epochs[0])
-        results = model.predict(low_x_test_transformed)
+        model.fit(low_x_train_transformed, low_y_train_transformed, batch_size=1, epochs = epochs[0])
+        results = model.predict(low_x_test_transformed, batch_size=1)
         final_results = scaler_low_y.inverse_transform(np.array(results))
         # evaluation = model.evaluate(low_x_test_transformed,low_y_test_transformed)
         # print(evaluation)
@@ -138,27 +162,31 @@ if __name__ == '__main__':
 
         #compile mode for high price
         model = keras.Sequential()
-        model.add(layers.LSTM(100, activation='tanh', input_shape=(num_steps[1], 13), 
-                    return_sequences=False))
+        model.add(layers.LSTM(150, activation='tanh',batch_input_shape=(1, num_steps[0], 13), return_sequences=False))
         model.add(layers.Dense(units=50, activation='relu'))
         model.add(layers.Dense(units=1, activation='linear'))
+        
+        print(model.summary())
         adam = keras.optimizers.Adam(lr=0.0001)
         model.compile(optimizer=adam, loss='mse')
         
         # #uncomment lines below to the determine number of epochs:
-        # history = model.fit(x_train_transformed, high_y_train_transformed, epochs = epochs[1], 
+        # history = model.fit(high_x_train_transformed, high_y_train_transformed, epochs = epochs[1], 
         # validation_data=(high_x_test_transformed,high_y_test_transformed))
         # # generate train vs val loss plot
         # processing.plot_train_vs_val_loss(history, 'High_price_loss_graph.png')
 
-        model.fit(high_x_train_transformed, high_y_train_transformed, epochs[1])
-        results = model.predict(high_x_test_transformed)
+        model.fit(high_x_train_transformed, high_y_train_transformed, batch_size =1, epochs = epochs[1])
+        results = model.predict(high_x_test_transformed, batch_size =1)
         final_results = scaler_high_y.inverse_transform(np.array(results))
         processing.plot_val_vs_actual(final_results, high_y_test, 'Actual High vs Predicted Plot.png' ,'High',num_steps[1])
         
-        final_df_results['pred_high'] = final_results[:-1]
-        
-        mask3 = df_final.index >= timestart
+        final_df_results_high = pd.DataFrame(final_results[:-1],index = high_y_test.iloc[num_steps[1]:-1].index,
+                                     columns = ['pred_high'])
+
+        final_df_results = pd.concat([final_df_results_high, final_df_results], axis=1, join="inner")
+        #modify the index - TODO
+        mask3 = df_final.index >= final_df_results.index[0]
         final_df_results['actual_low'] = df_final[mask3]['low']
         final_df_results['close'] = df_final[mask3]['close']
         final_df_results['open'] = df_final[mask3]['open']
