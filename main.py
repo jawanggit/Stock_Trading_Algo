@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.metrics import mean_squared_error
+from math import sqrt
 import sklearn.model_selection as cv
 import sklearn.datasets as datasets
 import collections
@@ -57,7 +58,8 @@ if __name__ == '__main__':
     testing_mode = False
     RNN = True
     num_steps = (20,20)
-    epochs = (15,4)
+    epochs = (1,1)
+    experiment = 1
     
     GBR = False
     ARIMA = False
@@ -66,7 +68,7 @@ if __name__ == '__main__':
     
     #RNN
     if RNN:
-
+                   
         #split train/test
         timestart = pd.to_datetime('2021-01-04')
         print(timestart)
@@ -124,69 +126,108 @@ if __name__ == '__main__':
                                                     low_y_test_sc, num_steps[0])
         (high_x_test_transformed, high_y_test_transformed) = processing.lstm_data_transform(high_x_test_sc,
                                                     high_y_test_sc, num_steps[1])
-        
+    
+        error_scores = list()
+        experiment_results = pd.DataFrame()
 
-        #compile model for low price
-        model = keras.Sequential()
-        model.add(layers.LSTM(150, activation='tanh', batch_input_shape=(1, num_steps[0], 13), 
-                    return_sequences=False))
-        model.add(layers.Dropout(.2))
-        model.add(layers.Dense(units=128, activation='relu'))
-        model.add(layers.Dense(units=64, activation='relu'))
-        model.add(layers.Dense(units=32, activation='relu'))
-        model.add(layers.Dense(units=8, activation='relu'))
-        model.add(layers.Dense(units=1, activation='linear'))
+        for r in range(experiment):
 
-        print(model.summary())
-        
-        adam = keras.optimizers.Adam(lr=0.0001)
-        model.compile(optimizer=adam, loss='mse')
-        
-        # # uncomment lines below to determine number of epochs:
-        # history = model.fit(low_x_train_transformed, low_y_train_transformed, epochs = epochs[0],
-        #              validation_data=(low_x_test_transformed,low_y_test_transformed)) 
-        # # generate train vs validation loss plot to determine epoch
-        # processing.plot_train_vs_val_loss(history, 'Low_price_loss_graph.png')
-        # # predict validation data using optimal epoch from graph (3 epochs)
+            #compile model for low price
+            model = keras.Sequential()
+            model.add(layers.LSTM(150, activation='tanh', batch_input_shape=(1, num_steps[0], 13), 
+                        return_sequences=False))
+            model.add(layers.Dropout(.2))
+            model.add(layers.Dense(units=128, activation='relu'))
+            model.add(layers.Dense(units=64, activation='relu'))
+            model.add(layers.Dense(units=32, activation='relu'))
+            model.add(layers.Dense(units=8, activation='relu'))
+            model.add(layers.Dense(units=1, activation='linear'))
 
-        model.fit(low_x_train_transformed, low_y_train_transformed, batch_size=1, epochs = epochs[0])
-        results = model.predict(low_x_test_transformed, batch_size=1)
-        final_results = scaler_low_y.inverse_transform(np.array(results))
+            print(model.summary())
+            
+            adam = keras.optimizers.Adam(lr=0.0001)
+            model.compile(optimizer=adam, loss='mse')
+            
+            # # uncomment lines below to determine number of epochs:
+            # history = model.fit(low_x_train_transformed, low_y_train_transformed, epochs = epochs[0],
+            #              validation_data=(low_x_test_transformed,low_y_test_transformed)) 
+            # # generate train vs validation loss plot to determine epoch
+            # processing.plot_train_vs_val_loss(history, 'Low_price_loss_graph.png')
+            # # predict validation data using optimal epoch from graph (3 epochs)
+
+            model.fit(low_x_train_transformed, low_y_train_transformed, batch_size=1, epochs = epochs[0], verbose = 0, shuffle = False)
+            results = model.predict(low_x_test_transformed, batch_size=1)  
+            final_results = scaler_low_y.inverse_transform(np.array(results))
+            
+            rmse = sqrt(mean_squared_error(low_y_test.iloc[num_steps[0]:],final_results))
+            print(f'Test RMSE: {r+1} : {rmse}')
+            experiment_results['predictions'] = final_results.values
+            error_scores.append(rmse)
+
+        experiment_results['mean']= experiment_results.mean(axis=1)
+        experiment_results.to_csv('RNN_low_predictions.csv', index = False)
+
+        df_results = pd.DataFrame()
+        df_results['results'] = error_scores
+        print(df_results.describe())
+        df_results.to_csv('RNN_low_RMSE_experiment_fixed.csv',index = False)
+        
         # evaluation = model.evaluate(low_x_test_transformed,low_y_test_transformed)
         # print(evaluation)
 
-        processing.plot_val_vs_actual(final_results, low_y_test,
+        processing.plot_val_vs_actual(experiment_results['mean'], low_y_test,
                                      'Actual Low vs Predicted Plot.png', 'Low',num_steps[0])
-        final_df_results = pd.DataFrame(final_results[:-1],index = low_y_test.iloc[num_steps[0]:-1].index,
+        final_df_results = pd.DataFrame(experiment_results['mean'][:-1],index = low_y_test.iloc[num_steps[0]:-1].index,
                                      columns = ['pred_low'])
+        for r in range(experiment):
+            #compile mode for high price
+            model.add(layers.LSTM(150, activation='tanh', batch_input_shape=(1, num_steps[1], 13), 
+                    return_sequences=False))
+            model.add(layers.Dropout(.2))
+            model.add(layers.Dense(units=128, activation='relu'))
+            model.add(layers.Dense(units=64, activation='relu'))
+            model.add(layers.Dense(units=32, activation='relu'))
+            model.add(layers.Dense(units=8, activation='relu'))
+            model.add(layers.Dense(units=1, activation='linear'))
 
-        #compile mode for high price
-        model = keras.Sequential()
-        model.add(layers.LSTM(150, activation='tanh',batch_input_shape=(1, num_steps[0], 13), return_sequences=False))
-        model.add(layers.Dense(units=50, activation='relu'))
-        model.add(layers.Dense(units=1, activation='linear'))
+            print(model.summary())
+            adam = keras.optimizers.Adam(lr=0.0001)
+            model.compile(optimizer=adam, loss='mse')
+            
+            # #uncomment lines below to the determine number of epochs:
+            # history = model.fit(high_x_train_transformed, high_y_train_transformed, epochs = epochs[1], 
+            # validation_data=(high_x_test_transformed,high_y_test_transformed))
+            # # generate train vs val loss plot
+            # processing.plot_train_vs_val_loss(history, 'High_price_loss_graph.png')
         
-        print(model.summary())
-        adam = keras.optimizers.Adam(lr=0.0001)
-        model.compile(optimizer=adam, loss='mse')
+            model.fit(high_x_train_transformed, high_y_train_transformed, batch_size=1, epochs = epochs[1], verbose = 0, shuffle = False)
+            results = model.predict(high_x_test_transformed, batch_size=1)  
+            final_results = scaler_high_y.inverse_transform(np.array(results))     
         
-        # #uncomment lines below to the determine number of epochs:
-        # history = model.fit(high_x_train_transformed, high_y_train_transformed, epochs = epochs[1], 
-        # validation_data=(high_x_test_transformed,high_y_test_transformed))
-        # # generate train vs val loss plot
-        # processing.plot_train_vs_val_loss(history, 'High_price_loss_graph.png')
+            rmse = sqrt(mean_squared_error(high_y_test.iloc[num_steps[1]:],final_results))
+            print(f'Test RMSE: {r+1} : {rmse}')
+            experiment_results[f'{r}'] = final_results.values
+            error_scores.append(rmse)
+        
+        experiment_results['mean']= experiment_results.mean(axis=1)
+        experiment_results.to_csv('RNN_high_predictions.csv', index = False)
+        
+        df_results = pd.DataFrame()
+        df_results['results'] = error_scores
+        print(df_results.describe())
+        df_results.to_csv('RNN_high_RMSE_experiment_fixed.csv',index = False)
 
-        model.fit(high_x_train_transformed, high_y_train_transformed, batch_size =1, epochs = epochs[1])
-        results = model.predict(high_x_test_transformed, batch_size =1)
-        final_results = scaler_high_y.inverse_transform(np.array(results))
-        processing.plot_val_vs_actual(final_results, high_y_test, 'Actual High vs Predicted Plot.png' ,'High',num_steps[1])
+
+   
+        processing.plot_val_vs_actual(experiment_results['mean'], high_y_test, 'Actual High vs Predicted Plot.png' ,'High',num_steps[1])
         
-        final_df_results_high = pd.DataFrame(final_results[:-1],index = high_y_test.iloc[num_steps[1]:-1].index,
+        final_df_results_high = pd.DataFrame(experiment_results['mean'][:-1],index = high_y_test.iloc[num_steps[1]:-1].index,
                                      columns = ['pred_high'])
 
         final_df_results = pd.concat([final_df_results_high, final_df_results], axis=1, join="inner")
-        #modify the index - TODO
+        
         mask3 = df_final.index >= final_df_results.index[0]
+        
         final_df_results['actual_low'] = df_final[mask3]['low']
         final_df_results['close'] = df_final[mask3]['close']
         final_df_results['open'] = df_final[mask3]['open']
