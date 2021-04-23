@@ -57,9 +57,9 @@ if __name__ == '__main__':
     #settings for generating results
     testing_mode = False
     RNN = True
-    num_steps = (20,20)
-    epochs = (1,1)
-    experiment = 1
+    num_steps = (10,10)
+    epochs = (15,4)
+    experiment = 10
     
     GBR = False
     ARIMA = False
@@ -142,8 +142,6 @@ if __name__ == '__main__':
             model.add(layers.Dense(units=32, activation='relu'))
             model.add(layers.Dense(units=8, activation='relu'))
             model.add(layers.Dense(units=1, activation='linear'))
-
-            print(model.summary())
             
             adam = keras.optimizers.Adam(lr=0.0001)
             model.compile(optimizer=adam, loss='mse')
@@ -161,7 +159,7 @@ if __name__ == '__main__':
             
             rmse = sqrt(mean_squared_error(low_y_test.iloc[num_steps[0]:],final_results))
             print(f'Test RMSE: {r+1} : {rmse}')
-            experiment_results['predictions'] = final_results.flatten()
+            experiment_results[f'{r}'] = final_results.flatten()
             error_scores.append(rmse)
 
         experiment_results['mean']= experiment_results.mean(axis=1)
@@ -169,7 +167,6 @@ if __name__ == '__main__':
 
         df_results = pd.DataFrame()
         df_results['results'] = error_scores
-        print(df_results.describe())
         df_results.to_csv('RNN_low_RMSE_experiment_fixed.csv',index = False)
         
         # evaluation = model.evaluate(low_x_test_transformed,low_y_test_transformed)
@@ -179,6 +176,9 @@ if __name__ == '__main__':
                                      'Actual Low vs Predicted Plot.png', 'Low',num_steps[0])
         final_df_results = pd.DataFrame(experiment_results['mean'][:-1],index = low_y_test.iloc[num_steps[0]:-1].index,
                                      columns = ['pred_low'])
+
+        error_scores = list()
+        experiment_results = pd.DataFrame()
         for r in range(experiment):
             #compile mode for high price
 
@@ -192,7 +192,6 @@ if __name__ == '__main__':
             model.add(layers.Dense(units=8, activation='relu'))
             model.add(layers.Dense(units=1, activation='linear'))
 
-            print(model.summary())
             adam = keras.optimizers.Adam(lr=0.0001)
             model.compile(optimizer=adam, loss='mse')
             
@@ -216,7 +215,6 @@ if __name__ == '__main__':
         
         df_results = pd.DataFrame()
         df_results['results'] = error_scores
-        print(df_results.describe())
         df_results.to_csv('RNN_high_RMSE_experiment_fixed.csv',index = False)
 
 
