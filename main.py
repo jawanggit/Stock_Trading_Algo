@@ -161,7 +161,7 @@ if __name__ == '__main__':
             
             rmse = sqrt(mean_squared_error(low_y_test.iloc[num_steps[0]:],final_results))
             print(f'Test RMSE: {r+1} : {rmse}')
-            experiment_results['predictions'] = final_results.values
+            experiment_results['predictions'] = final_results.flatten()
             error_scores.append(rmse)
 
         experiment_results['mean']= experiment_results.mean(axis=1)
@@ -181,6 +181,8 @@ if __name__ == '__main__':
                                      columns = ['pred_low'])
         for r in range(experiment):
             #compile mode for high price
+
+            model = keras.Sequential()
             model.add(layers.LSTM(150, activation='tanh', batch_input_shape=(1, num_steps[1], 13), 
                     return_sequences=False))
             model.add(layers.Dropout(.2))
@@ -206,7 +208,7 @@ if __name__ == '__main__':
         
             rmse = sqrt(mean_squared_error(high_y_test.iloc[num_steps[1]:],final_results))
             print(f'Test RMSE: {r+1} : {rmse}')
-            experiment_results[f'{r}'] = final_results.values
+            experiment_results[f'{r}'] = final_results.flatten()
             error_scores.append(rmse)
         
         experiment_results['mean']= experiment_results.mean(axis=1)

@@ -6,7 +6,7 @@ Stock Trading Algorithm that uses Machine Learning to calculate entry and exist 
 # Outline
 ## 1. Business Problem:
 
-Algorithmic trading applies machine learning models to predict when to sell and buy stocks in the stock market. Generating accurate predictions or forecasts for stock prices and other financial instruments is the central business problem for all investment banks and hedge fund managers. This project seeks to apply many of the Machine Learning algorithms that I have learned in order to generate a trading strategy that can yield returns over a 3 month period greater than simply investing in the SPY500 during the same period of time. 
+Algorithmic trading applies machine learning models to predict when to sell and buy stocks in the stock market. Generating accurate predictions or forecasts for stock prices and other financial instruments is the central business problem for all investment banks and hedge fund managers. This project seeks to apply many of the Machine Learning algorithms that I have learned in order to generate a trading strategy that can yield returns over a 3 month period greater than a simple 'buy and hold' strategy for 3 months. 
 
 Disclaimer - this project is entirely intended for research purposes and applying the algorithms and/or trading strategies outlined below is no guarantee of positive returns
 
