@@ -86,16 +86,21 @@ def AddIndicators(df_final, open_price):
     df_final['yest_ROC'] = df_final['ROC'].shift(periods = 1)
     df_final['yest_PPO'] = df_final['PPO'].shift(periods = 1);
 
-    df_final.iloc[-1,0] = open_price
-    df_final.iloc[-1] = df_final.iloc[-1].fillna(0)
+    # df_final.iloc[-1,0] = open_price
+    # df_final.iloc[-1] = df_final.iloc[-1].fillna(0)
+
+  
     
     df_final.dropna(axis = 0, inplace = True)
+   
+
     df_model = df_final.drop(columns=['volume','low','high','close',
     'RSI','CMO','Moving Average','MACD','MACD_signal','ROC','PPO'])
 
     df_final = df_final.iloc[-3000:,:]
     #df_model has all features shifted by 1 day and the actual day's open price"
     df_model = df_model.iloc[-3000:,:]
+    print(df_model.iloc[-62:])
     return df_model , df_final
 
 def HighLowTimestamp(df_final):
@@ -142,36 +147,34 @@ def HighLowTimestamp(df_final):
 
 #LSTM transformation
 
-def lstm_data_transform(x_data, low_actual_data, high_actual_data,  num_steps=5):
+def lstm_data_transform(x_data, actual_data, num_steps):
     """ Changes data to the format for LSTM training for sliding
      window approach (ref: https://towardsdatascience.com/
      how-to-reshape-data-and-do-regression-for-time-series-
      using-lstm-133dad96cd00) """
     # Prepare the list for the transformed data
-    X, low_actual, high_actual = list(), list(), list()
+    X, actual = list(), list()
     # Loop of the entire data set
     for i in range(x_data.shape[0]):
         # compute a new (sliding window) index
         end_ix = i + num_steps
+        
         # if index is larger than the size of the dataset, we stop
         if end_ix >= x_data.shape[0]:
             break
         # Get a sequence of data for x
         seq_X = x_data[i:end_ix]
         # Get only the last element of the sequency from y
-        seq_low_actual = low_actual_data[end_ix]
-        seq_high_actual = high_actual_data[end_ix]
+        seq_actual = actual_data[end_ix]
         
         # Append the list with sequencies
         X.append(seq_X)
-        low_actual.append(seq_low_actual)
-        high_actual.append(seq_high_actual)
+        actual.append(seq_actual)
     # Make final arrays
     x_array = np.array(X)
-    low_array = np.array(low_actual)
-    high_array = np.array(high_actual)
-    
-    return x_array, low_array, high_array
+    final_array = np.array(actual)
+        
+    return x_array, final_array
 
 
 
@@ -181,7 +184,7 @@ def plot_train_vs_val_loss(history, title):
     loss_values = history_dict['loss']
     val_loss_values = history_dict['val_loss']
     epochs = range(1, len(loss_values) + 1)
-    plt.plot(epochs, loss_values, 'bo', label='Training loss')
+    plt.plot(epochs, loss_values, 'b--', label='Training loss')
     plt.plot(epochs, val_loss_values, 'b', label='Validation loss')
     plt.title('Training and validation loss')
     plt.xlabel('Epochs')
@@ -189,14 +192,16 @@ def plot_train_vs_val_loss(history, title):
     plt.legend()
     plt.savefig(title)
 
-def plot_val_vs_actual(final_results, actual, title):
+def plot_val_vs_actual(final_results, actual, title, type, num_steps):
     plt.clf()
-    index = actual.iloc[5:].index
-    plt.plot(index, actual.iloc[5:], 'bo', label='Actual Daily Low Prices')
-    plt.plot(index, final_results, 'b', label='Predictions')
-    plt.title('Predictions vs Daily Low Actuals')
+    index = actual.iloc[num_steps:-1].index
+    plt.plot(index, actual.iloc[num_steps:-1], 'r', label='Actual Prices')
+    plt.plot(index, final_results[:-1], 'b', label='Predictions')
+    plt.title(f'Predictions vs Daily {type} Actuals')
     plt.xlabel('Time')
     plt.ylabel('Price')
     plt.legend()
     plt.savefig(title)
+
+
 
