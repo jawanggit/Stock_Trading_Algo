@@ -1,7 +1,7 @@
 from alpha_vantage.timeseries import TimeSeries
 import pandas as pd
 import csv
-import talib
+# import talib
 import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.model_selection import train_test_split, TimeSeriesSplit
@@ -11,6 +11,7 @@ import sklearn.datasets as datasets
 from sklearn.model_selection import GridSearchCV
 import matplotlib.pyplot as plt
 import math
+
 
 def PullHourlyData(stock):
 
@@ -47,7 +48,7 @@ def PullHourlyData(stock):
     ts_low.to_csv('hourly_stock_data.csv',header = True)
     ts_high.to_csv('hourly_stock_data_high.csv',header = True)
     
-
+'''
 def PullData(stock, enddate):
 
     API_key = '6JLJYIR4IV3WWRWS'
@@ -70,7 +71,7 @@ def PullData(stock, enddate):
 
     df_final.to_csv('stock_data.csv')
     return df_final
-
+'''
 def AddIndicators(df_final, open_price):
 
     df_final['yest_volume'] = df_final['volume'].shift(periods = 1)

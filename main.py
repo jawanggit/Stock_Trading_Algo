@@ -12,12 +12,18 @@ import collections
 from statsmodels.tsa.arima.model import ARIMA 
 # import stats
 from tensorflow import keras
-from tensorflow.keras import layers
+from tensorflow.keras import layers, backend, utils
 import processing
 import warnings
 import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
+
+
+def tilted_loss(q,y,f):
+    e = (y-f)
+    return backend.mean(backend.maximum(q*e, (q-1)*e), axis=-1)
+
 
 def Overall_Return(results, return_type = 'optimal'):
     overall_return = 0
@@ -57,15 +63,18 @@ if __name__ == '__main__':
     #settings for generating results
     testing_mode = False
     RNN = True
-    num_steps = (10,10)
-    epochs = (15,4)
-    experiment = 10
+    num_steps = (5,5)
+    epochs = (4,4)
+    experiment = 1
+    quantile = 0.3
     
     GBR = False
     ARIMA = False
     test_window = 3
     return_type = 'optimal'
-    
+
+
+
     #RNN
     if RNN:
                    
@@ -144,7 +153,12 @@ if __name__ == '__main__':
             model.add(layers.Dense(units=1, activation='linear'))
             
             adam = keras.optimizers.Adam(lr=0.0001)
+            # model.compile(optimizer=adam, loss='mse')
+
+            
+            # model.compile(loss=lambda y,f: tilted_loss(quantile,y,f), optimizer='adam')
             model.compile(optimizer=adam, loss='mse')
+            model.reset_states()
             
             # # uncomment lines below to determine number of epochs:
             # history = model.fit(low_x_train_transformed, low_y_train_transformed, epochs = epochs[0],
@@ -161,7 +175,8 @@ if __name__ == '__main__':
             print(f'Test RMSE: {r+1} : {rmse}')
             experiment_results[f'{r}'] = final_results.flatten()
             error_scores.append(rmse)
-
+        utils.plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
+        model.utils.plot_model(model, "low_price_model_with_shape_info.png", show_shapes = True)
         experiment_results['mean']= experiment_results.mean(axis=1)
         experiment_results.to_csv('RNN_low_predictions.csv', index = False)
 
@@ -174,9 +189,9 @@ if __name__ == '__main__':
 
         processing.plot_val_vs_actual(experiment_results['mean'], low_y_test,
                                      'Actual Low vs Predicted Plot.png', 'Low',num_steps[0])
-        final_df_results = pd.DataFrame(experiment_results['mean'][:-1],index = low_y_test.iloc[num_steps[0]:-1].index,
+        final_df_results = pd.DataFrame(experiment_results['mean'].values[:-1],index = low_y_test.iloc[num_steps[0]:-1].index,
                                      columns = ['pred_low'])
-
+        print(final_df_results)
         error_scores = list()
         experiment_results = pd.DataFrame()
         for r in range(experiment):
@@ -194,7 +209,7 @@ if __name__ == '__main__':
 
             adam = keras.optimizers.Adam(lr=0.0001)
             model.compile(optimizer=adam, loss='mse')
-            
+            model.reset_states()
             # #uncomment lines below to the determine number of epochs:
             # history = model.fit(high_x_train_transformed, high_y_train_transformed, epochs = epochs[1], 
             # validation_data=(high_x_test_transformed,high_y_test_transformed))
@@ -211,17 +226,16 @@ if __name__ == '__main__':
             error_scores.append(rmse)
         
         experiment_results['mean']= experiment_results.mean(axis=1)
+        # experiment_results.set_index(high_y_test.iloc[num_steps[1]:-1].index)
         experiment_results.to_csv('RNN_high_predictions.csv', index = False)
         
         df_results = pd.DataFrame()
         df_results['results'] = error_scores
         df_results.to_csv('RNN_high_RMSE_experiment_fixed.csv',index = False)
-
-
    
         processing.plot_val_vs_actual(experiment_results['mean'], high_y_test, 'Actual High vs Predicted Plot.png' ,'High',num_steps[1])
         
-        final_df_results_high = pd.DataFrame(experiment_results['mean'][:-1],index = high_y_test.iloc[num_steps[1]:-1].index,
+        final_df_results_high = pd.DataFrame(experiment_results['mean'].values[:-1],index = high_y_test.iloc[num_steps[1]:-1].index,
                                      columns = ['pred_high'])
 
         final_df_results = pd.concat([final_df_results_high, final_df_results], axis=1, join="inner")
