@@ -40,7 +40,7 @@ def Overall_Return(results, return_type = 'optimal'):
                     overall_return += row['return']
         
         trades  = pd.DataFrame(trade_lst,columns=results.columns)
-        trades.to_excel('TRADES_RNN.xlsx')      
+        trades.to_csv('TRADES_RNN.csv')      
         return overall_return# removes most recent actual price which is neg val
 
 if __name__ == '__main__':
@@ -63,9 +63,9 @@ if __name__ == '__main__':
     #settings for generating results
     testing_mode = False
     RNN = True
-    num_steps = (5,5)
-    epochs = (4,4)
-    experiment = 1
+    num_steps = (1,1)
+    epochs = (1,1)
+    experiment = 10
     quantile = 0.3
     
     GBR = False
@@ -175,8 +175,8 @@ if __name__ == '__main__':
             print(f'Test RMSE: {r+1} : {rmse}')
             experiment_results[f'{r}'] = final_results.flatten()
             error_scores.append(rmse)
-        utils.plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
-        model.utils.plot_model(model, "low_price_model_with_shape_info.png", show_shapes = True)
+        # utils.plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
+        # model.utils.plot_model(model, "low_price_model_with_shape_info.png", show_shapes = True)
         experiment_results['mean']= experiment_results.mean(axis=1)
         experiment_results.to_csv('RNN_low_predictions.csv', index = False)
 
